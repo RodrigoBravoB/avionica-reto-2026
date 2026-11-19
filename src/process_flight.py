@@ -191,6 +191,115 @@ def guardar_datos(tiempos_ms, altitud_original,
                 round(velocidad_filtrada[i], 3)
             ])
 # ==========================================
+# COMPARACIÓN DE VENTANAS
+# ==========================================
+
+def comparar_ventanas(tiempos, altitudes):
+
+    ventanas = [3, 5, 10, 15]
+
+    resultados = {}
+
+    print("\nCOMPARACIÓN DE VENTANAS")
+    print("----------------------------------------")
+    print("N | Apogeo (m) | Tiempo (s) | Vel. máxima (m/s)")
+
+    # Calcular resultados para cada ventana
+    for ventana in ventanas:
+
+        filtrada = media_movil(altitudes, ventana)
+
+        velocidades = calcular_velocidad(
+            tiempos,
+            filtrada
+        )
+
+        eventos = detectar_eventos(
+            tiempos,
+            filtrada
+        )
+
+        indice_despegue, indice_apogeo, indice_aterrizaje = eventos
+
+        altitud_maxima = filtrada[indice_apogeo]
+        tiempo_apogeo = tiempos[indice_apogeo]
+
+        velocidad_maxima = max(
+            velocidades[indice_despegue:indice_apogeo + 1]
+        )
+
+        resultados[ventana] = {
+            "altitud": filtrada,
+            "velocidad": velocidades
+        }
+
+        print(
+            ventana,
+            "|", round(altitud_maxima, 2),
+            "|", round(tiempo_apogeo, 2),
+            "|", round(velocidad_maxima, 2)
+        )
+
+    # Comparación de altitudes
+    plt.figure(figsize=(12, 6))
+
+    plt.plot(
+        tiempos,
+        altitudes,
+        label="Altitud original",
+        alpha=0.3
+    )
+
+    for ventana in ventanas:
+
+        plt.plot(
+            tiempos,
+            resultados[ventana]["altitud"],
+            label=f"N = {ventana}"
+        )
+
+    plt.xlabel("Tiempo (s)")
+    plt.ylabel("Altitud (m)")
+    plt.title("Comparación de filtros de media móvil")
+    plt.grid(True)
+    plt.legend()
+    plt.tight_layout()
+
+    plt.savefig(
+        CARPETA_GRAFICAS / "comparison_altitude.png"
+    )
+
+    plt.close()
+
+    # Comparación de velocidades
+    plt.figure(figsize=(12, 6))
+
+    for ventana in ventanas:
+
+        plt.plot(
+            tiempos,
+            resultados[ventana]["velocidad"],
+            label=f"N = {ventana}"
+        )
+
+    plt.axhline(0, linestyle="--")
+
+    plt.xlabel("Tiempo (s)")
+    plt.ylabel("Velocidad vertical (m/s)")
+    plt.title("Efecto de la ventana sobre la velocidad")
+    plt.grid(True)
+    plt.legend()
+    plt.tight_layout()
+
+    plt.savefig(
+        CARPETA_GRAFICAS / "comparison_velocity.png"
+    )
+
+    plt.close()
+
+    print("\nGráficas de comparación generadas.") 
+          
+# ==========================================
 # GENERACIÓN DE GRÁFICAS
 # ==========================================
 
@@ -312,6 +421,8 @@ def main():
         tiempos,
         altitudes_filtradas
     )
+    # Comparar diferentes ventanas de filtrado
+    comparar_ventanas(tiempos, altitudes)
 
     indice_despegue, indice_apogeo, indice_aterrizaje = eventos
 
