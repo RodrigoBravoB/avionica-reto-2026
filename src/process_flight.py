@@ -378,6 +378,34 @@ def generar_graficas(tiempos, altitud_original,
 
     plt.savefig(CARPETA_GRAFICAS / "velocity_vs_time.png")
     plt.close()
+
+
+def validar_resultados(corruptos, altitud_apogeo,
+                       velocidad_descenso, velocidad_apogeo):
+
+    print("\nVALIDACIÓN DE RESULTADOS")
+    print("--------------------------------")
+
+    pruebas = [
+        ("Se detectaron 3 registros corruptos",
+         corruptos == 3),
+
+        ("Altitud del apogeo cercana a 480 m",
+         abs(altitud_apogeo - 480) <= 5),
+
+        ("Velocidad de descenso cercana a 6 m/s",
+         abs(abs(velocidad_descenso) - 6) <= 0.5),
+
+        ("Velocidad cercana a cero en el apogeo",
+         abs(velocidad_apogeo) <= 2)
+    ]
+
+    for nombre, resultado in pruebas:
+        if resultado:
+            print("[OK]", nombre)
+        else:
+            print("[REVISAR]", nombre)
+
 # ==========================================
 # PROGRAMA PRINCIPAL
 # ==========================================
@@ -433,7 +461,7 @@ def main():
     velocidad_maxima = max(
         velocidades_filtradas[indice_despegue:indice_apogeo + 1]
     )
-
+    velocidad_apogeo = velocidades_filtradas[indice_apogeo]
     tiempo_total = (
         tiempos[indice_aterrizaje]
         - tiempos[indice_despegue]
@@ -448,7 +476,13 @@ def main():
         altitudes_filtradas[indice_apogeo]
         - altitudes_filtradas[indice_aterrizaje]
     ) / tiempo_descenso
-
+     # 6.1 Validar resultados
+    validar_resultados(
+    corruptos,
+    altitud_apogeo,
+    velocidad_media_descenso,
+    velocidad_apogeo
+)
     # 7. Guardar resultados
     guardar_datos(
         tiempos_ms,
