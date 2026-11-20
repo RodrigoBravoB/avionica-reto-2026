@@ -1,0 +1,99 @@
+\documentclass[10pt,a4paper]{article}
+\usepackage[spanish,es-nodecimaldot]{babel}
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{geometry}
+\geometry{margin=1.65cm}
+\usepackage{graphicx}
+\usepackage{float}
+\usepackage{booktabs}
+\usepackage{amsmath}
+\usepackage{caption}
+\usepackage{hyperref}
+\usepackage{enumitem}
+\setlength{\parindent}{0pt}
+\setlength{\parskip}{3pt}
+\captionsetup{font=small,labelfont=bf}
+\setlist{nosep,leftmargin=*}
+\title{Sistema de adquisición y procesamiento de telemetría de vuelo}
+\author{Rodrigo Bravo Bravo\\Ingeniería Aeroespacial -- Primer semestre\\Ruta 1: Telemetría y adquisición de datos}
+\date{Noviembre de 2026}
+
+\begin{document}
+\maketitle
+\vspace{-1.1em}
+
+\section{Objetivo}
+Desarrollar en Python una herramienta básica de estación terrena capaz de generar un registro simulado de vuelo, leer telemetría almacenada en un archivo CSV, descartar registros inválidos, filtrar la altitud, estimar la velocidad vertical e identificar los eventos principales del vuelo.
+
+\section{Metodología}
+La simulación genera muestras a 10 Hz, con un intervalo de 100 ms. El archivo \texttt{flight\_log.csv} contiene tiempo, altitud, aceleración vertical y temperatura. Se modelan las etapas de reposo inicial, propulsión, ascenso balístico, descenso con paracaídas y reposo final. Se añade ruido aleatorio a las mediciones y se insertan tres registros corruptos para probar la lectura robusta.
+
+El procesador lee el CSV fila por fila. Comprueba el número de columnas, convierte los campos a valores numéricos, descarta valores no finitos y exige que el tiempo sea creciente. Después aplica una media móvil centrada de ventana $N=5$ a la altitud. Esta elección se utiliza para el análisis posterior al vuelo: al ser centrada, emplea muestras anteriores y posteriores al punto evaluado.
+
+La velocidad vertical se estima mediante diferencias finitas. Para los puntos interiores se utiliza la diferencia central:
+\begin{equation}
+ v_i=\frac{h_{i+1}-h_{i-1}}{t_{i+1}-t_{i-1}}.
+ \label{eq:velocidad}
+\end{equation}
+En los extremos se usan diferencias hacia adelante o hacia atrás. El despegue se identifica cuando la altitud filtrada supera 5 m; el apogeo corresponde al máximo posterior al despegue; y el aterrizaje se identifica cuando la altitud permanece en 2 m o menos durante diez muestras consecutivas.
+
+\section{Decisiones técnicas}
+Se eligió Python por su facilidad para leer archivos CSV y generar gráficas. La biblioteca estándar \texttt{csv} permite procesar los registros sin utilizar Pandas ni NumPy para los cálculos. La media móvil reduce las fluctuaciones de altitud que, al derivarse numéricamente, producen ruido en la velocidad. Se compararon ventanas de 3, 5, 10 y 15 muestras para observar el efecto del suavizado. Matplotlib se utilizó para representar altitud y velocidad, tanto originales como filtradas.
+
+\newpage
+\section{Resultados}
+El generador produjo 959 registros válidos y añadió tres registros corruptos. El procesador identificó y descartó los tres registros. La simulación reportó una altitud máxima de 480.13 m y un apogeo a los 12.6 s. El despegue detectado fue a los 2.4 s y el tiempo total entre los eventos detectados de despegue y aterrizaje fue de 90.0 s. La velocidad máxima de ascenso calculada fue 87.03 m/s y la rapidez media de descenso fue 5.99 m/s.
+
+\begin{table}[H]
+\centering
+\caption{Comparación del tamaño de ventana de la media móvil.}
+\begin{tabular}{cccc}
+\toprule
+$N$ & Apogeo (m) & Tiempo (s) & Velocidad máxima (m/s)\\
+\midrule
+3  & 480.26 & 12.6 & 88.62\\
+5  & 480.13 & 12.6 & 87.03\\
+10 & 479.38 & 12.5 & 85.38\\
+15 & 478.85 & 12.5 & 83.64\\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Al aumentar $N$, la velocidad máxima estimada disminuye porque el filtrado suaviza las variaciones rápidas. La altitud máxima cambia poco en este caso, mientras que la curva de velocidad muestra una reducción del ruido respecto a la obtenida con altitud sin filtrar. Una ventana demasiado grande puede atenuar cambios reales y modificar la estimación de los eventos.
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.48\textwidth,height=4.0cm,keepaspectratio]{../media/plots/altitude_vs_time.png}\hfill
+\includegraphics[width=0.48\textwidth,height=4.0cm,keepaspectratio]{../media/plots/velocity_vs_time.png}
+\caption{Altitud y velocidad vertical: datos originales y filtrados.}
+\end{figure}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.48\textwidth,height=3.8cm,keepaspectratio]{../media/plots/comparison_altitude.png}\hfill
+\includegraphics[width=0.48\textwidth,height=3.8cm,keepaspectratio]{../media/plots/comparison_velocity.png}
+\caption{Efecto de distintos tamaños de ventana sobre la altitud y la velocidad.}
+\end{figure}
+
+\section{Conclusiones}
+El programa permitió procesar el registro simulado sin detenerse ante las tres filas corruptas, generar un archivo procesado e identificar despegue, apogeo y aterrizaje. La comparación muestra que el filtrado mejora la estabilidad de la velocidad estimada, aunque el tamaño de ventana debe elegirse considerando el equilibrio entre reducción de ruido y conservación de cambios. La solución cumple como herramienta de análisis de datos registrados; la media móvil centrada está pensada para procesamiento posterior al vuelo y no para telemetría estrictamente en tiempo real.
+
+\newpage
+\section{Bitácora de trabajo}
+\begin{itemize}
+  \item Se construyó un generador de datos para representar las etapas del vuelo y producir un archivo CSV con muestreo de 10 Hz.
+  \item Al probar la lectura del archivo, se incorporó validación de columnas, conversión numérica, comprobación de valores finitos y orden temporal para descartar filas inválidas sin interrumpir el proceso.
+  \item Al calcular la velocidad directamente desde la altitud con ruido, se observó una señal con fluctuaciones importantes. Se implementó una media móvil y se compararon cuatro tamaños de ventana para evaluar su efecto.
+  \item Se añadieron criterios para detectar los tres eventos del vuelo y se verificaron los resultados obtenidos frente a los valores esperados de la simulación.
+\end{itemize}
+
+\section{Referencias y uso de herramientas}
+\begin{enumerate}
+  \item Python Software Foundation. \textit{Python 3 Documentation}. \url{https://docs.python.org/3/}
+  \item Matplotlib Development Team. \textit{Matplotlib Documentation}. \url{https://matplotlib.org/stable/}
+\end{enumerate}
+
+Se utilizó ChatGPT como apoyo para aclarar conceptos, revisar la organización del código y orientar la redacción. La implementación, ejecución y comprobación de los resultados se realizaron en el proyecto. El autor debe poder explicar y modificar el código presentado.
+
+\end{document}
